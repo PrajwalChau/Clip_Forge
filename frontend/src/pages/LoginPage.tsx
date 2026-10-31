@@ -1,0 +1,30 @@
+import { ArrowRight, Clapperboard, Eye, EyeOff } from 'lucide-react';
+import { useState, type FormEvent } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { ApiError } from '../services/api';
+
+const authErrorMessage = (error: unknown): string => {
+  if (!(error instanceof ApiError)) return 'We could not complete that request.';
+  if (error.code !== 'VALIDATION_FAILED' || !Array.isArray(error.details)) return error.message;
+  const firstIssue = error.details[0] as { path?: unknown; message?: unknown } | undefined;
+  const field = Array.isArray(firstIssue?.path) && typeof firstIssue.path[0] === 'string' ? firstIssue.path[0] : 'form';
+  const label = field === 'name' ? 'Name' : field === 'email' ? 'Email' : field === 'password' ? 'Password' : 'Form';
+  return `${label}: ${typeof firstIssue?.message === 'string' ? firstIssue.message : 'Please enter a valid value.'}`;
+};
+
+export const LoginPage = () => {
+  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [name, setName] = useState(''); const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [passwordConfirmation, setPasswordConfirmation] = useState(''); const [showPassword, setShowPassword] = useState(false); const [showPasswordConfirmation, setShowPasswordConfirmation] = useState(false); const [error, setError] = useState(''); const [submitting, setSubmitting] = useState(false);
+  const { login, register } = useAuth(); const navigate = useNavigate(); const location = useLocation();
+  const intended = typeof (location.state as { from?: unknown } | null)?.from === 'string' ? (location.state as { from: string }).from : undefined;
+  const submit = async (event: FormEvent): Promise<void> => { event.preventDefault(); setError(''); if (mode === 'register' && !name.trim()) { setError('Name: Please enter your name.'); return; } if (mode === 'register' && password.length < 12) { setError('Password: Use at least 12 characters.'); return; } if (mode === 'register' && password !== passwordConfirmation) { setError('Password confirmation does not match.'); return; } setSubmitting(true); try { const authenticatedUser = mode === 'login' ? await login(email, password) : await register(name.trim(), email, password); const destination = intended && (/^\/app(?:\/|$)/.test(intended) || (/^\/admin(?:\/|$)/.test(intended) && authenticatedUser.role === 'admin')) ? intended : authenticatedUser.role === 'admin' ? '/admin' : '/app'; navigate(destination, { replace: true }); } catch (err) { setError(authErrorMessage(err)); } finally { setSubmitting(false); } };
+  return <main className="auth-page"><div className="auth-panel"><Link className="auth-brand" to="/"><span className="brand-mark"><Clapperboard size={16} /></span> ClipForge</Link><div className="auth-heading"><p className="eyebrow">{mode === 'login' ? 'Welcome back' : 'Create your studio'}</p><h1>{mode === 'login' ? 'Sign in to your workspace.' : 'Start with your first source video.'}</h1><p>{mode === 'login' ? 'Your projects, clips, and usage stay in one place.' : 'Use a strong password of at least twelve characters.'}</p></div><form onSubmit={(event) => void submit(event)} className="auth-form">
+    {mode === 'register' && <label>Name<input required maxLength={100} value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" /></label>}
+    <label>Email<input required type="email" maxLength={254} value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" /></label>
+    <label style={{ position: 'relative' }}>Password<div style={{ position: 'relative' }}><input required type={showPassword ? 'text' : 'password'} minLength={mode === 'register' ? 12 : 1} value={password} onChange={(event) => setPassword(event.target.value)} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} style={{ paddingRight: '42px' }} /><button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword((visible) => !visible)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', color: '#52525b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }} >{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button></div></label>
+    {mode === 'register' && <label style={{ position: 'relative' }}>Confirm password<div style={{ position: 'relative' }}><input required type={showPasswordConfirmation ? 'text' : 'password'} minLength={12} value={passwordConfirmation} onChange={(event) => setPasswordConfirmation(event.target.value)} autoComplete="new-password" style={{ paddingRight: '42px' }} /><button type="button" aria-label={showPasswordConfirmation ? 'Hide password confirmation' : 'Show password confirmation'} onClick={() => setShowPasswordConfirmation((visible) => !visible)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', color: '#52525b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }} >{showPasswordConfirmation ? <EyeOff size={16} /> : <Eye size={16} />}</button></div></label>}
+    {error && <p className="form-error" role="alert">{error}</p>}
+    <button className="button button-primary full" disabled={submitting}>{submitting ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'} <ArrowRight size={16} /></button>
+  </form><p className="auth-switch">{mode === 'login' ? 'New to ClipForge?' : 'Already have an account?'} <button onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); setShowPassword(false); setShowPasswordConfirmation(false); }}>{mode === 'login' ? 'Create an account' : 'Sign in'}</button></p></div><aside className="auth-aside"><p>“The craft lives in the review. The system just makes the first pass more useful.”</p><span>ClipForge, creator studio</span></aside></main>;
+};

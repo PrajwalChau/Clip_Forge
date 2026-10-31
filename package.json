@@ -1,0 +1,27 @@
+{
+  "name": "clipforge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "ClipForge — authorized video-to-short-form clipping workspace",
+  "workspaces": ["frontend", "backend"],
+  "scripts": {
+    "dev": "concurrently -n api,web -c cyan,magenta \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "dev:memory": "concurrently -n api,web -c cyan,magenta \"npm run dev:memory -w backend\" \"npm run dev -w frontend\"",
+    "worker": "npm run worker -w backend",
+    "worker:dev": "npm run worker:dev -w backend",
+    "admin:bootstrap": "npm run admin:bootstrap -w backend",
+    "seed:dev-users": "npm run seed:dev-users -w backend",
+    "verify:services": "npm run verify:services -w backend",
+    "build": "npm run build -w backend && npm run build -w frontend",
+    "start": "npm run start -w backend",
+    "test": "npm run test -w backend",
+    "typecheck": "npm run typecheck -w backend && npm run typecheck -w frontend",
+    "lint": "npm run lint -w backend && npm run lint -w frontend"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "concurrently": "^9.1.2",
+    "typescript-eslint": "^8.18.0"
+  }
+}

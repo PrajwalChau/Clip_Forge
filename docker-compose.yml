@@ -1,0 +1,80 @@
+name: clipforge
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 }).ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    restart: unless-stopped
+    env_file: backend/.env
+    environment:
+      PORT: 4000
+      MONGODB_URI: mongodb://mongo:27017/clipforge
+      REDIS_URL: redis://redis:6379
+      QUEUE_MODE: bullmq
+      WORKER_MODE: separate
+      STORAGE_PROVIDER: local
+      LOCAL_STORAGE_PATH: /app/storage
+    ports:
+      - "4000:4000"
+    volumes:
+      - clipforge-storage:/app/storage
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    restart: unless-stopped
+    env_file: backend/.env
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/clipforge
+      REDIS_URL: redis://redis:6379
+      QUEUE_MODE: bullmq
+      WORKER_MODE: separate
+      STORAGE_PROVIDER: local
+      LOCAL_STORAGE_PATH: /app/storage
+      TEMP_FILE_MAX_AGE_HOURS: 24
+      TRANSCRIPTION_PROVIDER: whisper_local
+      WHISPER_COMMAND: whisper
+    volumes:
+      - clipforge-storage:/app/storage
+      - clipforge-temp:/app/tmp
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  mongo-data:
+  redis-data:
+  clipforge-storage:
+  clipforge-temp:
